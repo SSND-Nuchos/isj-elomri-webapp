@@ -1,10 +1,17 @@
-from flask import Flask, request
+import os
 import sqlite3
+from flask import Flask, request, render_template
+from flask_sqlalchemy import SQLAlchemy
 
-app = Flask(__name__)
+app = Flask(__name__, instance_relative_config=True)
 
-def pripoj_db():
-    return sqlite3.connect("elomri-kurzy.db")
+# Cesta k databáze
+os.makedirs(app.instance_path, exist_ok=True)
+db_path = os.path.join(app.instance_path, "elomri-kurzy.db")
+app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}".replace("\\", "/")
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db = SQLAlchemy(app)
 
 def affin_sifra(text, A, B):
     vysledok = ""
@@ -17,11 +24,35 @@ def affin_sifra(text, A, B):
             vysledok += znak
     return vysledok
 
+class Trener(db.Model):
+    __tablename__ = "Treneri"
+    ID = db.Column(db.Integer, primary_key=True)
+    Meno = db.Column(db.String, nullable=False)
+    Priezvisko = db.Column(db.String, nullable=False)
+    Specializacia = db.Column(db.String)
+    Telefon = db.Column(db.String)
+    Heslo = db.Column(db.String)
+
+class Kurz(db.Model):
+    __tablename__ = "Kurzy"
+    ID = db.Column(db.Integer, primary_key=True)
+    Nazov = db.Column(db.String, nullable=False)
+    TypSportu = db.Column(db.String, nullable=False)
+    MaxKapacita = db.Column(db.Integer, nullable=False)
+    ID_Trenera = db.Column(db.Integer, db.ForeignKey('Treneri.ID'))
+
+class Miesto(db.Model):
+    __tablename__ = "Miesta"
+    ID = db.Column(db.Integer, primary_key=True)
+    Nazov = db.Column(db.String, nullable=False)
+    Adresa = db.Column(db.String)
+    Kapacita = db.Column(db.Integer)
+
 @app.route('/')
 def index():
     return '''
         <h1>Výber z databázy</h1>
-        <a href="/treneri"><button>Zobraz trénerov a ich kurzy</button></a>
+        <a href="/treneri"><button>Zobraz trénerov</button></a>
         <a href="/kurzy"><button>Zobraz všetky kurzy</button></a>
         <a href="/miesta"><button>Zobraz všetky miesta</button></a>
         <a href="/sucet_kapacity"><button>Súčet kapacity kurzov na 'P'</button></a><br><br>
@@ -30,58 +61,40 @@ def index():
 
 @app.route('/treneri')
 def zobraz_trenerov():
-    conn = pripoj_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT Meno, Priezvisko, Specializacia FROM Treneri")
-    treneri = cursor.fetchall()
-    conn.close()
-    return "<h2>Tréneri:</h2>" + "".join(f"<p>{row}</p>" for row in treneri) + '<a href="/">Späť</a>'
+    treneri = Trener.query.all()
+    return "<h2>Tréneri:</h2>" + "".join(f"<p>{t.Meno} {t.Priezvisko} – {t.Specializacia}</p>" for t in treneri) + '<a href="/">Späť</a>'
 
 @app.route('/kurzy')
 def zobraz_kurzy():
-    conn = pripoj_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT ID, Nazov, TypSportu, MaxKapacita FROM Kurzy")
-    kurzy = cursor.fetchall()
-    conn.close()
-    return "<h2>Kurzy:</h2>" + "".join(f"<p>{row}</p>" for row in kurzy) + '<a href="/">Späť</a>'
+    kurzy = Kurz.query.all()
+    return "<h2>Kurzy:</h2>" + "".join(f"<p>{k.ID}: {k.Nazov}, {k.TypSportu}, {k.MaxKapacita}</p>" for k in kurzy) + '<a href="/">Späť</a>'
 
 @app.route('/miesta')
 def zobraz_miesta():
-    conn = pripoj_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT ID, Nazov, Adresa FROM Miesta")
-    miesta = cursor.fetchall()
-    conn.close()
-    return "<h2>Miesta:</h2>" + "".join(f"<p>{row}</p>" for row in miesta) + '<a href="/">Späť</a>'
+    miesta = Miesto.query.all()
+    return "<h2>Miesta:</h2>" + "".join(f"<p>{m.ID}: {m.Nazov}, {m.Adresa}</p>" for m in miesta) + '<a href="/">Späť</a>'
 
 @app.route('/sucet_kapacity')
 def sucet_kapacity():
-    conn = pripoj_db()
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT COALESCE(SUM(MaxKapacita), 0) FROM Kurzy WHERE Nazov LIKE 'P%'")
-    sucet = cursor.fetchall()
+    sucet = cursor.fetchone()[0]
     conn.close()
-    return f"<h2>Súčet kapacity kurzov na 'P': {sucet[0][0]}</h2><a href='/'>Späť</a>"
+    return f"<h2>Súčet kapacity kurzov na 'P': {sucet}</h2><a href='/'>Späť</a>"
 
 @app.route('/vloz_kurz', methods=['GET', 'POST'])
 def vloz_kurz():
     if request.method == 'POST':
-        nazov = request.form['nazov']
-        typ = request.form['typ']
-        max_kapacita = request.form['max_kapacita']
-        id_trenera = request.form['id_trenera']
+        nazov = affin_sifra(request.form['nazov'], 5, 8)
+        typ = affin_sifra(request.form['typ'], 5, 8)
+        max_kapacita = int(request.form['max_kapacita'])
+        id_trenera = int(request.form['id_trenera'])
 
-        A, B = 5, 8
-        nazov_sifra = affin_sifra(nazov, A, B)
-        typ_sifra = affin_sifra(typ, A, B)
+        novy_kurz = Kurz(Nazov=nazov, TypSportu=typ, MaxKapacita=max_kapacita, ID_Trenera=id_trenera)
+        db.session.add(novy_kurz)
+        db.session.commit()
 
-        conn = pripoj_db()
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO Kurzy (Nazov, TypSportu, MaxKapacita, ID_Trenera) VALUES (?, ?, ?, ?)",
-                       (nazov_sifra, typ_sifra, max_kapacita, id_trenera))
-        conn.commit()
-        conn.close()
         return '<p>Úspešne pridané!</p><a href="/">Späť na úvod</a>'
 
     return '''
