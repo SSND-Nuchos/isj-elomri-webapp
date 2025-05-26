@@ -28,6 +28,42 @@ def index():
         <a href="/vloz_kurz"><button>Vlož nový kurz</button></a>
     '''
 
+@app.route('/treneri')
+def zobraz_trenerov():
+    conn = pripoj_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT Meno, Priezvisko, Specializacia FROM Treneri")
+    treneri = cursor.fetchall()
+    conn.close()
+    return "<h2>Tréneri:</h2>" + "".join(f"<p>{row}</p>" for row in treneri) + '<a href="/">Späť</a>'
+
+@app.route('/kurzy')
+def zobraz_kurzy():
+    conn = pripoj_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT ID, Nazov, TypSportu, MaxKapacita FROM Kurzy")
+    kurzy = cursor.fetchall()
+    conn.close()
+    return "<h2>Kurzy:</h2>" + "".join(f"<p>{row}</p>" for row in kurzy) + '<a href="/">Späť</a>'
+
+@app.route('/miesta')
+def zobraz_miesta():
+    conn = pripoj_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT ID, Nazov, Adresa FROM Miesta")
+    miesta = cursor.fetchall()
+    conn.close()
+    return "<h2>Miesta:</h2>" + "".join(f"<p>{row}</p>" for row in miesta) + '<a href="/">Späť</a>'
+
+@app.route('/sucet_kapacity')
+def sucet_kapacity():
+    conn = pripoj_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COALESCE(SUM(MaxKapacita), 0) FROM Kurzy WHERE Nazov LIKE 'P%'")
+    sucet = cursor.fetchall()
+    conn.close()
+    return f"<h2>Súčet kapacity kurzov na 'P': {sucet[0][0]}</h2><a href='/'>Späť</a>"
+
 @app.route('/vloz_kurz', methods=['GET', 'POST'])
 def vloz_kurz():
     if request.method == 'POST':
@@ -59,42 +95,6 @@ def vloz_kurz():
         </form>
         <a href="/">Späť</a>
     '''
-
-@app.route('/treneri')
-def zobraz_trenerov():
-    conn = pripoj_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM VSETCI_TRENERI_A_ICH_KURZY")
-    treneri = cursor.fetchall()
-    conn.close()
-    return "".join(f"<p>{row}</p>" for row in treneri) + '<a href="/">Späť</a>'
-
-@app.route('/kurzy')
-def zobraz_kurzy():
-    conn = pripoj_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT ID, Nazov, MaxKapacita FROM Kurzy")
-    kurzy = cursor.fetchall()
-    conn.close()
-    return "".join(f"<p>{row}</p>" for row in kurzy) + '<a href="/">Späť</a>'
-
-@app.route('/miesta')
-def zobraz_miesta():
-    conn = pripoj_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT ID, Nazov FROM Miesta")
-    miesta = cursor.fetchall()
-    conn.close()
-    return "".join(f"<p>{row}</p>" for row in miesta) + '<a href="/">Späť</a>'
-
-@app.route('/sucet_kapacity')
-def sucet_kapacity():
-    conn = pripoj_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT COALESCE(SUM(MaxKapacita), 0) FROM Kurzy WHERE Nazov LIKE 'P%'")
-    sucet = cursor.fetchall()
-    conn.close()
-    return f"<h2>Súčet kapacity: {sucet}</h2><a href='/'>Späť</a>"
 
 if __name__ == '__main__':
     app.run(debug=True)
