@@ -52,12 +52,12 @@ def affin_desifra(text, A, B):
 # SQLAlchemy modely
 class Trener(db.Model):
     __tablename__ = "Treneri"
-    ID = db.Column(db.Integer, primary_key=True)
+    ID = db.Column("ID_trenera", db.Integer, primary_key=True)
     Meno = db.Column(db.String, nullable=False)
     Priezvisko = db.Column(db.String, nullable=False)
     Specializacia = db.Column(db.String)
     Telefon = db.Column(db.String)
-    Heslo = db.Column(db.String)
+    Heslo = db.Column("heslo", db.String)
 
 class Kurz(db.Model):
     __tablename__ = "Kurzy"
@@ -65,7 +65,7 @@ class Kurz(db.Model):
     Nazov = db.Column(db.String, nullable=False)
     TypSportu = db.Column(db.String, nullable=False)
     MaxKapacita = db.Column(db.Integer, nullable=False)
-    ID_Trenera = db.Column(db.Integer, db.ForeignKey('Treneri.ID'))
+    ID_Trenera = db.Column(db.Integer, db.ForeignKey('Treneri.ID_trenera'))
 
 class Miesto(db.Model):
     __tablename__ = "Miesta"
