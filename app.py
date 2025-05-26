@@ -5,12 +5,16 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-# Cesta k databáze (použijeme presnú databázu, ktorú si poslal)
-db_path = os.path.abspath("elomri-kurzy.db")
+# Cesta k databáze
+DB_FILE = "elomri-kurzy.db"
+db_path = os.path.abspath(DB_FILE)
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}".replace("\\", "/")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
+
+# Afinná šifra
+A, B = 5, 8  # pevne dané kľúče
 
 def affin_sifra(text, A, B):
     vysledok = ""
@@ -23,6 +27,29 @@ def affin_sifra(text, A, B):
             vysledok += znak
     return vysledok
 
+def affin_desifra(text, A, B):
+    # Hľadanie inverzného modulu
+    def modularna_inverzia(a, m):
+        for i in range(1, m):
+            if (a * i) % m == 1:
+                return i
+        return None
+
+    M = modularna_inverzia(A, 26)
+    if M is None:
+        return "[CHYBA: Neexistuje inverzia pre A]"
+
+    vysledok = ""
+    for znak in text.upper():
+        if znak.isalpha():
+            c = ord(znak) - ord('A')
+            desifrovane_c = (M * (c - B)) % 26
+            vysledok += chr(desifrovane_c + ord('A'))
+        else:
+            vysledok += znak
+    return vysledok
+
+# SQLAlchemy modely
 class Trener(db.Model):
     __tablename__ = "Treneri"
     ID = db.Column(db.Integer, primary_key=True)
@@ -47,6 +74,7 @@ class Miesto(db.Model):
     Adresa = db.Column(db.String)
     Kapacita = db.Column(db.Integer)
 
+# ROUTES
 @app.route('/')
 def index():
     return '''
@@ -66,7 +94,7 @@ def zobraz_trenerov():
 @app.route('/kurzy')
 def zobraz_kurzy():
     kurzy = Kurz.query.all()
-    return "<h2>Kurzy:</h2>" + "".join(f"<p>{k.ID}: {k.Nazov}, {k.TypSportu}, {k.MaxKapacita}</p>" for k in kurzy) + '<a href="/">Späť</a>'
+    return "<h2>Kurzy:</h2>" + "".join(f"<p>{k.ID}: {k.Nazov} ({affin_desifra(k.Nazov, A, B)}), {k.TypSportu} ({affin_desifra(k.TypSportu, A, B)}), {k.MaxKapacita}</p>" for k in kurzy) + '<a href="/">Späť</a>'
 
 @app.route('/miesta')
 def zobraz_miesta():
@@ -75,7 +103,7 @@ def zobraz_miesta():
 
 @app.route('/sucet_kapacity')
 def sucet_kapacity():
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("SELECT COALESCE(SUM(MaxKapacita), 0) FROM Kurzy WHERE Nazov LIKE 'P%'")
     sucet = cursor.fetchone()[0]
@@ -85,8 +113,8 @@ def sucet_kapacity():
 @app.route('/vloz_kurz', methods=['GET', 'POST'])
 def vloz_kurz():
     if request.method == 'POST':
-        nazov = affin_sifra(request.form['nazov'], 5, 8)
-        typ = affin_sifra(request.form['typ'], 5, 8)
+        nazov = affin_sifra(request.form['nazov'], A, B)
+        typ = affin_sifra(request.form['typ'], A, B)
         max_kapacita = int(request.form['max_kapacita'])
         id_trenera = int(request.form['id_trenera'])
 
@@ -109,4 +137,6 @@ def vloz_kurz():
     '''
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)
