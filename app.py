@@ -61,16 +61,16 @@ class Trener(db.Model):
 
 class Kurz(db.Model):
     __tablename__ = "Kurzy"
-    ID = db.Column(db.Integer, primary_key=True)
-    Nazov = db.Column(db.String, nullable=False)
-    TypSportu = db.Column(db.String, nullable=False)
-    MaxKapacita = db.Column(db.Integer, nullable=False)
-    ID_Trenera = db.Column(db.Integer, db.ForeignKey('Treneri.ID_trenera'))
+    ID = db.Column("ID_kurzu", db.Integer, primary_key=True)
+    Nazov = db.Column("Nazov_kurzu", db.String, nullable=False)
+    TypSportu = db.Column("Typ_sportu", db.String, nullable=False)
+    MaxKapacita = db.Column("Max_pocet_ucastnikov", db.Integer, nullable=False)
+    ID_Trenera = db.Column("ID_trenera", db.Integer, db.ForeignKey('Treneri.ID_trenera'))
 
 class Miesto(db.Model):
     __tablename__ = "Miesta"
-    ID = db.Column(db.Integer, primary_key=True)
-    Nazov = db.Column(db.String, nullable=False)
+    ID = db.Column("ID_miesta", db.Integer, primary_key=True)
+    Nazov = db.Column("Nazov_miesta", db.String, nullable=False)
     Adresa = db.Column(db.String)
     Kapacita = db.Column(db.Integer)
 
@@ -105,7 +105,7 @@ def zobraz_miesta():
 def sucet_kapacity():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("SELECT COALESCE(SUM(MaxKapacita), 0) FROM Kurzy WHERE Nazov LIKE 'P%'")
+    cursor.execute("SELECT COALESCE(SUM(Max_pocet_ucastnikov), 0) FROM Kurzy WHERE Nazov_kurzu LIKE 'P%'")
     sucet = cursor.fetchone()[0]
     conn.close()
     return f"<h2>Súčet kapacity kurzov na 'P': {sucet}</h2><a href='/'>Späť</a>"
