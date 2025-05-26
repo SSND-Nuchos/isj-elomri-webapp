@@ -3,11 +3,10 @@ import sqlite3
 from flask import Flask, request, render_template
 from flask_sqlalchemy import SQLAlchemy
 
-app = Flask(__name__, instance_relative_config=True)
+app = Flask(__name__)
 
-# Cesta k databáze
-os.makedirs(app.instance_path, exist_ok=True)
-db_path = os.path.join(app.instance_path, "elomri-kurzy.db")
+# Cesta k databáze (použijeme presnú databázu, ktorú si poslal)
+db_path = os.path.abspath("elomri-kurzy.db")
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}".replace("\\", "/")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
@@ -110,6 +109,4 @@ def vloz_kurz():
     '''
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(debug=True)
